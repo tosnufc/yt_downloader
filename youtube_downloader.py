@@ -122,9 +122,12 @@ if __name__ == "__main__":
     # Get user choice
     while True:
         try:
-            choice = int(input("\nEnter the number of the format you want to download: "))
+            choice_input = input("\nEnter the number of the format you want to download (press Enter for highest quality): ").strip()
+            if not choice_input:  # If user just presses Enter
+                choice = 1
+                break
+            choice = int(choice_input)
             if 1 <= choice <= len(video_formats):
-                format_id = video_formats[choice-1]['format_id']
                 break
             else:
                 print("Invalid choice. Please try again.")
@@ -132,4 +135,4 @@ if __name__ == "__main__":
             print("Please enter a valid number.")
     
     # Download the video
-    download_video(url, output_path, format_id)
+    download_video(url, output_path, video_formats[choice-1]['format_id'])
