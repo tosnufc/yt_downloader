@@ -3,6 +3,22 @@ import sys
 import urllib.parse
 import pyperclip
 import os
+import re
+
+def is_youtube_url(url):
+    """Check if the URL is a valid YouTube URL"""
+    youtube_patterns = [
+        r'(?:https?://)?(?:www\.)?youtube\.com/watch\?v=[\w-]+',
+        r'(?:https?://)?(?:www\.)?youtu\.be/[\w-]+',
+        r'(?:https?://)?(?:www\.)?youtube\.com/embed/[\w-]+',
+        r'(?:https?://)?(?:www\.)?youtube\.com/v/[\w-]+',
+        r'(?:https?://)?(?:m\.)?youtube\.com/watch\?v=[\w-]+',
+    ]
+    
+    for pattern in youtube_patterns:
+        if re.match(pattern, url, re.IGNORECASE):
+            return True
+    return False
 
 def format_size(size_bytes):
     """Convert bytes to human readable format"""
@@ -48,6 +64,11 @@ def list_formats(url):
     # Clean and decode the URL
     url = urllib.parse.unquote(url).replace('\\', '')
     
+    # Validate YouTube URL
+    if not is_youtube_url(url):
+        print("Error: The provided URL is not a valid YouTube URL!")
+        return []
+    
     ydl_opts = {
         'quiet': True,
         'no_warnings': True
@@ -81,13 +102,26 @@ def download_video(url, output_path="results", format_id=None):
         # Clean and decode the URL
         url = urllib.parse.unquote(url).replace('\\', '')
         
+        # Validate YouTube URL
+        if not is_youtube_url(url):
+            print("Error: The provided URL is not a valid YouTube URL!")
+            return
+        
         # Ensure output directory exists
         os.makedirs(output_path, exist_ok=True)
         
         ydl_opts = {
-            'format': format_id if format_id else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'format': format_id if format_id else 'best[height<=?1080][ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+            'merge_output_format': 'mp4',
+            'postprocessors': [{
+                'key': 'FFmpegMerger',
+            }],
             'outtmpl': f'{output_path}/%(title)s.%(ext)s',
             'progress_hooks': [lambda d: print(f"Downloading: {d.get('_percent_str', '?%')} of {format_size(d.get('_total_bytes', d.get('_total_bytes_estimate', None)))}")],
+            'verbose': False,  # Reduce verbosity
+            'writeinfojson': False,
+            'writesubtitles': False,
+            'writeautomaticsub': False,
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -111,28 +145,16 @@ if __name__ == "__main__":
         print("No URL found in clipboard!")
         sys.exit(1)
     
+    if not is_youtube_url(url):
+        print("The provided URL is not a valid YouTube URL!")
+        sys.exit(1)
+    
     print(f"Found URL in clipboard: {url}")
     
     # Get output path from command line if provided, otherwise use results folder
     output_path = sys.argv[1] if len(sys.argv) > 1 else "results"
     
-    # List available formats
-    video_formats = list_formats(url)
+    print("Downloading best quality video with audio...")
     
-    # Get user choice
-    while True:
-        try:
-            choice_input = input("\nEnter the number of the format you want to download (press Enter for highest quality): ").strip()
-            if not choice_input:  # If user just presses Enter
-                choice = 1
-                break
-            choice = int(choice_input)
-            if 1 <= choice <= len(video_formats):
-                break
-            else:
-                print("Invalid choice. Please try again.")
-        except ValueError:
-            print("Please enter a valid number.")
-    
-    # Download the video
-    download_video(url, output_path, video_formats[choice-1]['format_id'])
+    # Download the video with best quality that includes audio
+    download_video(url, output_path)
