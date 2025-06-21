@@ -79,11 +79,11 @@ def list_formats(url):
         formats = info['formats']
         duration = info.get('duration')
         
-        # Filter for video formats and sort by quality
+        # Filter for video formats and sort by quality (highest first)
         video_formats = [f for f in formats if f.get('height') is not None and f.get('ext') != 'mhtml']
-        video_formats.sort(key=lambda x: (x.get('height', 0), x.get('filesize', 0)), reverse=True)
+        video_formats.sort(key=lambda x: (x.get('height', 0), x.get('tbr', 0), x.get('filesize', 0)), reverse=True)
         
-        print("\nAvailable video formats:")
+        print("\nAvailable video formats (highest quality first):")
         print("Resolution  |  Filesize  |  Bitrate   |  FPS  |  Extension")
         print("-" * 60)
         
@@ -111,17 +111,15 @@ def download_video(url, output_path="results", format_id=None):
         os.makedirs(output_path, exist_ok=True)
         
         ydl_opts = {
-            'format': format_id if format_id else 'best[height<=?1080][ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+            'format': format_id if format_id else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]',
             'merge_output_format': 'mp4',
-            'postprocessors': [{
-                'key': 'FFmpegMerger',
-            }],
             'outtmpl': f'{output_path}/%(title)s.%(ext)s',
             'progress_hooks': [lambda d: print(f"Downloading: {d.get('_percent_str', '?%')} of {format_size(d.get('_total_bytes', d.get('_total_bytes_estimate', None)))}")],
-            'verbose': False,  # Reduce verbosity
+            'verbose': False,
             'writeinfojson': False,
             'writesubtitles': False,
             'writeautomaticsub': False,
+            'ignoreerrors': False,
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
