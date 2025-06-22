@@ -1,3 +1,5 @@
 .venv
 /results
 __pycache__
+.cursorindexingignore
+.specstory/
