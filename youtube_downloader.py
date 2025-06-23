@@ -97,6 +97,25 @@ def list_formats(url):
         
         return video_formats
 
+def get_quality_label(height):
+    """Convert video height to quality label"""
+    if height is None:
+        return "Unknown"
+    elif height <= 480:
+        return "SD"
+    elif height <= 720:
+        return "HD"
+    elif height <= 1080:
+        return "FHD"
+    elif height <= 1440:
+        return "QHD"
+    elif height <= 2160:
+        return "4K"
+    elif height <= 4320:
+        return "8K"
+    else:
+        return f"{height}p"
+
 def download_video(url, output_path="results", format_id=None):
     try:
         # Clean and decode the URL
@@ -110,10 +129,39 @@ def download_video(url, output_path="results", format_id=None):
         # Ensure output directory exists
         os.makedirs(output_path, exist_ok=True)
         
+        # First, get video info to determine quality
+        info_opts = {
+            'quiet': True,
+            'no_warnings': True
+        }
+        
+        with yt_dlp.YoutubeDL(info_opts) as ydl:
+            print("\nFetching video information...")
+            info = ydl.extract_info(url, download=False)
+            
+            # Get the best format to determine quality
+            if format_id:
+                selected_format = next((f for f in info['formats'] if f.get('format_id') == format_id), None)
+            else:
+                # Get the format that would be selected by our format string
+                formats = info['formats']
+                video_formats = [f for f in formats if f.get('height') is not None and f.get('vcodec') != 'none']
+                if video_formats:
+                    selected_format = max(video_formats, key=lambda x: (x.get('height', 0), x.get('tbr', 0)))
+                else:
+                    selected_format = max(formats, key=lambda x: (x.get('height', 0) or 0, x.get('tbr', 0) or 0))
+            
+            quality_label = get_quality_label(selected_format.get('height') if selected_format else None)
+            
+            print(f"Title: {info['title']}")
+            print(f"Duration: {info['duration']} seconds")
+            print(f"Quality: {quality_label}")
+            print(f"Downloading to: {os.path.abspath(output_path)}")
+        
         ydl_opts = {
             'format': format_id if format_id else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
             'merge_output_format': 'mp4',
-            'outtmpl': f'{output_path}/%(title)s.%(ext)s',
+            'outtmpl': f'{output_path}/%(title)s [{quality_label}].%(ext)s',
             'progress_hooks': [lambda d: print(f"Downloading: {d.get('_percent_str', '?%')} of {format_size(d.get('_total_bytes', d.get('_total_bytes_estimate', None)))}")],
             'verbose': False,
             'writeinfojson': False,
@@ -123,11 +171,6 @@ def download_video(url, output_path="results", format_id=None):
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print("\nFetching video information...")
-            info = ydl.extract_info(url, download=False)
-            print(f"Title: {info['title']}")
-            print(f"Duration: {info['duration']} seconds")
-            print(f"Downloading to: {os.path.abspath(output_path)}")
             print("Starting download...")
             ydl.download([url])
             print("Download completed successfully!")
