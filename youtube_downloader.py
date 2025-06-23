@@ -111,7 +111,7 @@ def download_video(url, output_path="results", format_id=None):
         os.makedirs(output_path, exist_ok=True)
         
         ydl_opts = {
-            'format': format_id if format_id else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]',
+            'format': format_id if format_id else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
             'merge_output_format': 'mp4',
             'outtmpl': f'{output_path}/%(title)s.%(ext)s',
             'progress_hooks': [lambda d: print(f"Downloading: {d.get('_percent_str', '?%')} of {format_size(d.get('_total_bytes', d.get('_total_bytes_estimate', None)))}")],
